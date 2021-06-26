@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-#python 2.7.x
+#python 3
 
 import subprocess32
 from flask import Flask, request, Response, abort
@@ -13,7 +13,7 @@ import re
 import time
 import calendar
 import threading
-import Queue
+import queue
 import pprint
 from flask_httpauth import HTTPBasicAuth
 from flask_restful import reqparse
@@ -55,34 +55,34 @@ def thread_worker():
         data = q.get()
         if data is None:
             break
-        print "picked from queue: " + data
+        print("picked from queue: " + data)
         run_adb(data)
         q.task_done()
 
     print ("Exiting worker")
 
 def run_cmd(command):
-    print "run_cmd: " + command
+    print("run_cmd: " + command)
     try:
         output = subprocess32.check_output(command.split(" "), stderr=subprocess32.STDOUT, timeout=10)
     except OSError as ose:
-        print "Exception running command: " + str(ose)
+        print("Exception running command: " + str(ose))
         return False
     except subprocess32.CalledProcessError as cpe:
-        print "CalledProcessError exception: " + str(cpe)
+        print("CalledProcessError exception: " + str(cpe))
         time.sleep(3)
-        print "Trying again..."
+        print("Trying again...")
         try:
             output = subprocess32.check_output(command.split(" "), stderr=subprocess32.STDOUT, timeout=10)
         except OSError as ose:
-            print "Exception running command: " + str(ose)
+            print("Exception running command: " + str(ose))
             return False
         except subprocess32.CalledProcessError as cpe:
-            print "CalledProcessError exception: " + str(cpe)
-            print "Giving up!"
+            print("CalledProcessError exception: " + str(cpe))
+            print("Giving up!")
             return False
 
-    print "run_cmd output: " + output
+    print("run_cmd output: " + output)
     return output
 
 def reconnect():
@@ -95,7 +95,7 @@ def reconnect():
     # attempts to run a command will return an error
     time_now = calendar.timegm(time.gmtime())
     if (time_now - LAST_RECONNECT) > (60 * 10):
-        print "forcing reconnect as we haven't reconnected since %d and it is now %d" % (LAST_RECONNECT, time_now)
+        print("forcing reconnect as we haven't reconnected since %d and it is now %d" % (LAST_RECONNECT, time_now))
         out = run_cmd("sudo /usr/bin/adb kill-server ; sudo /usr/bin/adb start-server")
         if out == False:
             CONN_STATUS = False
@@ -110,17 +110,17 @@ def reconnect():
         CONN_STATUS = False
     else:
         CONN_STATUS = True
-        print "reconnect is setting CONN_STATUS to True"
+        print("reconnect is setting CONN_STATUS to True")
         LAST_RECONNECT = time_now
     return CONN_STATUS
 
 def run_adb(command):
     global CONN_STATUS
-    print "enter run_adb CONN_STATUS = " + str(CONN_STATUS)
+    print("enter run_adb CONN_STATUS = " + str(CONN_STATUS))
 
     if CONN_STATUS == False:
         reconnect()
-        print "after reconnect() CONN_STATUS = " + str(CONN_STATUS)
+        print("after reconnect() CONN_STATUS = " + str(CONN_STATUS))
         if CONN_STATUS == False:
             return False
 
@@ -135,7 +135,7 @@ def run_adb(command):
 def queue_adb(command):
     global USE_THREADING
     if USE_THREADING == True:
-        print "putting on queue: " + command
+        print("putting on queue: " + command)
         q.put(command)
         return True
     else:
@@ -143,7 +143,7 @@ def queue_adb(command):
 
 def button_press(button):
 
-    if button in cfg['buttons'].keys():
+    if button in list(cfg['buttons'].keys()):
         keycode = cfg['buttons'][button]
     else:
         return False, 404, "button not found"
@@ -161,8 +161,8 @@ def button_press(button):
 def run_action_sequence(action_name, args):
 
     if action_name == 'check_programme':
-        if 'name' in args.keys():
-            if args['name'] in cfg['programmes'].keys():
+        if 'name' in list(args.keys()):
+            if args['name'] in list(cfg['programmes'].keys()):
                 return True, 200, "programme exists"
             else:
                 return False, 404, "could not find programme"
@@ -174,14 +174,14 @@ def run_action_sequence(action_name, args):
         return False, 500, "adb could not connect"
 
     if action_name == 'play_programme':
-        if 'name' in args.keys():
-            if args['name'] in cfg['programmes'].keys():
+        if 'name' in list(args.keys()):
+            if args['name'] in list(cfg['programmes'].keys()):
                 sequence = cfg['programmes'][args['name']]
             else:
                 return False, 404, "could not find programme"
         else:
             return False, 500, "programme name not specified in 'name' parameter"
-    elif action_name in cfg['actions'].keys():
+    elif action_name in list(cfg['actions'].keys()):
         sequence = cfg['actions'][action_name]
     else:
         return False, 404, "action name not found"
@@ -189,14 +189,14 @@ def run_action_sequence(action_name, args):
 
     times = 1
     if action_name == 'volume_up' or action_name == 'volume_down' or action_name == 'volume_set':
-        if 'amount' in args.keys():
+        if 'amount' in list(args.keys()):
             times = int(args['amount'])
 
     for action in sequence:
-        print "running action: " + str(action)
-        if 'wait' in action.keys():
+        print("running action: " + str(action))
+        if 'wait' in list(action.keys()):
             time.sleep(int(action['wait']))
-        elif 'keypress' in action.keys():
+        elif 'keypress' in list(action.keys()):
             if times > 1:
                 keycodes = (action['keypress'] + " ") * times
                 if action_name == 'volume_set':
@@ -205,35 +205,35 @@ def run_action_sequence(action_name, args):
             else:
                 result = queue_adb("shell input keyevent " + action['keypress'])
 
-        elif 'keypress_multiple' in action.keys():
+        elif 'keypress_multiple' in list(action.keys()):
             keycodes = (action['keypress_multiple'] + " ") * int(action['times'])
             result = queue_adb("shell input keyevent --longpress " + keycodes)
 
-        elif 'keypress_rand' in action.keys():
+        elif 'keypress_rand' in list(action.keys()):
             rand_times = (randint(int(action['min_times']), int(action['max_times'])))
             if rand_times > 0:
                 keycodes = (action['keypress_rand'] + " ") * rand_times
                 result = queue_adb("shell input keyevent --longpress " + keycodes)
 
-        elif 'delete' in action.keys():
+        elif 'delete' in list(action.keys()):
             keycodes = "KEYCODE_DEL " * int(action['delete'])
             result = queue_adb("shell input keyevent --longpress " + keycodes)
 
-        elif 'text' in action.keys():
-            param = action[action.keys()[0]]
+        elif 'text' in list(action.keys()):
+            param = action[list(action.keys())[0]]
             if param[0] == '<' and param[-1] == '>':
                 arg = param[1:-1]
-                if arg in args.keys():
+                if arg in list(args.keys()):
                     param = args[arg]
                 else:
                     return False, 500, "query parameter '" + arg + "' needs to be specified for this action"
 
             result = queue_adb("shell input text \"" + param + "\"")
 
-        elif 'app' in action.keys():
+        elif 'app' in list(action.keys()):
             result = queue_adb("shell am start " + cfg['apps'][action['app']] + "/" + cfg['activities'][action['activity']])
 
-        elif 'raw' in action.keys():
+        elif 'raw' in list(action.keys()):
             result = queue_adb(action['raw'])
 
         if result == False:
@@ -242,25 +242,25 @@ def run_action_sequence(action_name, args):
     return True, 200, "success"
 
 def check_aws_ip(ipaddr):
-    print "check_aws_ip: checking if " + ipaddr + " is in eu-west-1"
+    print("check_aws_ip: checking if " + ipaddr + " is in eu-west-1")
     response = requests.get('https://ip-ranges.amazonaws.com/ip-ranges.json')
 
     ip_json = json.loads(response.text)
     prefixes = ip_json['prefixes']
-    my_ip = ip_address(unicode(ipaddr))
+    my_ip = ip_address(str(ipaddr))
     region = 'Unknown'
     for prefix in prefixes:
         if my_ip in ip_network(prefix['ip_prefix']):
             region = prefix['region']
             break
     if region == 'eu-west-1':
-        print "check_aws_ip: adding " + ipaddr + " to list of trusted ips"
+        print("check_aws_ip: adding " + ipaddr + " to list of trusted ips")
         cfg['trusted_ips'] += [ipaddr]
         with open("trusted-ips.yaml", 'w') as ymlfile:
             yaml.dump(cfg['trusted_ips'], ymlfile, default_flow_style=False)
         return True
     else:
-        print "check_aws_ip: " + ipaddr + " doesnt seem to be in eu-west-1 therefore rejecting"
+        print("check_aws_ip: " + ipaddr + " doesnt seem to be in eu-west-1 therefore rejecting")
         return False
 
 
@@ -307,16 +307,16 @@ def limit_remote_addr():
     if str(request.remote_addr)[0:7] != "192.168" and str(request.remote_addr) not in cfg['trusted_ips']:
         result = check_aws_ip(str(request.remote_addr))
         if result == False:
-            print "request is not from an IP address we trust"
+            print("request is not from an IP address we trust")
             return '', 403
 
 # tell the service to refresh the connection to the TV
 class Connect(Resource):
     @auth.login_required
     def get(self):
-        print "connect: about to reconnect, CONN_STATUS is " + str(CONN_STATUS)
+        print("connect: about to reconnect, CONN_STATUS is " + str(CONN_STATUS))
         result = reconnect()
-        print "connect: CONN_STATUS is now " + str(CONN_STATUS)
+        print("connect: CONN_STATUS is now " + str(CONN_STATUS))
 
         if result == False:
             return {'success': str(result), 'message': 'adb could not connect'}, 500
@@ -335,7 +335,7 @@ class Action(Resource):
         parser.add_argument('name', type=str)
         args = parser.parse_args()
 
-        print "action name:'" + action_name + "' args:" + str(args)
+        print("action name:'" + action_name + "' args:" + str(args))
 
         result, status_code, message = run_action_sequence(action_name, args)
         return {'success': str(result), 'message': message}, status_code
@@ -344,7 +344,7 @@ class Action(Resource):
 class Raw(Resource):
     @auth.login_required
     def get(self, command):
-        print "raw command:'" + command
+        print("raw command:'" + command)
         #reconnect()
         #result = queue_adb(command)
         result = False
@@ -356,7 +356,7 @@ class Raw(Resource):
 class Button(Resource):
     @auth.login_required
     def get(self, button):
-        print "button:" + button
+        print("button:" + button)
 
         result, status_code, message = button_press(button)
         return {'success': str(result), 'message': message}, status_code
@@ -369,7 +369,7 @@ api.add_resource(Button, '/button/<button>') # Route_1
 
 
 if USE_THREADING == True:
-    q = Queue.Queue()
+    q = queue.Queue()
     threads = []
     t = threading.Thread(target=thread_worker)
     t.start()
