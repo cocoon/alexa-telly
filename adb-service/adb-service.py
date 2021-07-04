@@ -37,6 +37,8 @@ with open("config-secure.yaml", 'r') as ymlfile:
 with open("trusted-ips.yaml", 'r') as ymlfile:
     cfg['trusted_ips'] = yaml.load(ymlfile)
 
+cfg['adb'] = cfg_secure['adb']
+cfg['serverip'] = cfg_secure['serverip']
 cfg['connection'] = cfg_secure['connection']
 cfg['credentials'] = cfg_secure['credentials']
 
@@ -82,8 +84,9 @@ def run_cmd(command):
             print("Giving up!")
             return False
 
-    print("run_cmd output: " + output)
-    return output
+    #print("print: run_cmd output: ", output)
+    #print("print: run_cmd outputdecode: " + output.decode('utf-8'))
+    return output.decode('utf-8')
 
 def reconnect():
     global CONN_STATUS
@@ -96,12 +99,12 @@ def reconnect():
     time_now = calendar.timegm(time.gmtime())
     if (time_now - LAST_RECONNECT) > (60 * 10):
         print("forcing reconnect as we haven't reconnected since %d and it is now %d" % (LAST_RECONNECT, time_now))
-        out = run_cmd("sudo /usr/bin/adb kill-server ; sudo /usr/bin/adb start-server")
+        out = run_cmd(cfg['adb']['path'] + " kill-server ; " + cfg['adb']['path'] + " start-server")
         if out == False:
             CONN_STATUS = False
             return False
 
-    out = run_cmd("sudo /usr/bin/adb connect %s" % (cfg['connection']['ip']))
+    out = run_cmd(cfg['adb']['path'] + " connect %s" % (cfg['connection']['ip']))
     if out == False:
         CONN_STATUS = False
         return False
@@ -125,7 +128,7 @@ def run_adb(command):
             return False
 
 
-    result = run_cmd("sudo /usr/bin/adb " + command)
+    result = run_cmd(cfg['adb']['path'] + " " + command)
     if result == False:
         return False
     else:
@@ -376,4 +379,5 @@ if USE_THREADING == True:
     threads.append(t)
 
 if __name__ == '__main__':
-     app.run(host='192.168.1.30', port=6707) #, debug=True)
+     print (str(cfg['serverip']['ip']))
+     app.run(host=str(cfg['serverip']['ip']), port=6707, ssl_context=('cert.pem', 'key.pem')) #, debug=True)
