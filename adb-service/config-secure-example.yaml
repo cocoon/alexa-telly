@@ -1,6 +1,14 @@
+# ip address of your local adb-service server
+serverip:
+  ip: 192.168.1.3
+  
 # ip address of your android TV on local network
 connection:
   ip: 192.168.1.234
+
+# path to adb binary
+adb:
+  path: /opt/bin/adb
 
 # username and password the lambda function can use to connect to the REST API
 credentials:
