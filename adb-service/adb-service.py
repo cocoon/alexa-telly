@@ -28,13 +28,13 @@ USE_THREADING = False
 CONN_STATUS = False
 LAST_RECONNECT = 0
 
-with open("config.yaml", 'r') as ymlfile:
+with open(sys.path[0] + "/config.yaml", 'r') as ymlfile:
     cfg = yaml.load(ymlfile)
 
-with open("config-secure.yaml", 'r') as ymlfile:
+with open(sys.path[0] + "/config-secure.yaml", 'r') as ymlfile:
     cfg_secure = yaml.load(ymlfile)
 
-with open("trusted-ips.yaml", 'r') as ymlfile:
+with open(sys.path[0] + "/trusted-ips.yaml", 'r') as ymlfile:
     cfg['trusted_ips'] = yaml.load(ymlfile)
 
 cfg['adb'] = cfg_secure['adb']
@@ -84,8 +84,8 @@ def run_cmd(command):
             print("Giving up!")
             return False
 
-    #print("print: run_cmd output: ", output)
-    #print("print: run_cmd outputdecode: " + output.decode('utf-8'))
+    print("print: run_cmd output: ", output)
+    print("print: run_cmd outputdecode: " + output.decode('utf-8'))
     return output.decode('utf-8')
 
 def reconnect():
@@ -255,6 +255,7 @@ def check_aws_ip(ipaddr):
     for prefix in prefixes:
         if my_ip in ip_network(prefix['ip_prefix']):
             region = prefix['region']
+            print("check_aws_ip: " + ipaddr + " region: " + region)
             break
     if region == 'eu-west-1':
         print("check_aws_ip: adding " + ipaddr + " to list of trusted ips")
@@ -262,6 +263,12 @@ def check_aws_ip(ipaddr):
         with open("trusted-ips.yaml", 'w') as ymlfile:
             yaml.dump(cfg['trusted_ips'], ymlfile, default_flow_style=False)
         return True
+    elif region == 'us-east-1':
+        print("check_aws_ip: adding " + ipaddr + " to list of trusted ips")
+        cfg['trusted_ips'] += [ipaddr]
+        with open("trusted-ips.yaml", 'w') as ymlfile:
+            yaml.dump(cfg['trusted_ips'], ymlfile, default_flow_style=False)
+        return True^M
     else:
         print("check_aws_ip: " + ipaddr + " doesnt seem to be in eu-west-1 therefore rejecting")
         return False
@@ -380,4 +387,4 @@ if USE_THREADING == True:
 
 if __name__ == '__main__':
      print (str(cfg['serverip']['ip']))
-     app.run(host=str(cfg['serverip']['ip']), port=6707, ssl_context=('cert.pem', 'key.pem')) #, debug=True)
+     app.run(host=str(cfg['serverip']['ip']), port=6707, ssl_context=(sys.path[0] + '/cert.pem', sys.path[0] + '/key.pem')) #, debug=True)
